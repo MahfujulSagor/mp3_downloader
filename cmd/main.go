@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/fatih/color"
 	"io"
 	"net/http"
 	"os"
@@ -16,7 +17,7 @@ const WORKERS = 8 //? number of parallel download chunks
 func main() {
 	//? Extract video URL from command line
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run main.go <YouTube_URL>")
+		color.Blue("Usage: go run main.go <YouTube_URL>")
 		return
 	}
 	var videoURL string = os.Args[1]
@@ -24,19 +25,19 @@ func main() {
 	//? Step 1: Extract direct audio URL + title
 	audioURL, err := getAudioURL(videoURL)
 	if err != nil {
-		fmt.Println("Error getting audio URL:", err)
+		color.Red("Error getting audio URL: %v", err)
 		return
 	}
 	title, err := getVideoTitle(videoURL)
 	if err != nil {
-		fmt.Println("Error getting video title:", err)
+		color.Red("Error getting video title: %v", err)
 		return
 	}
 	//? Sanitize title for filename
 	title = strings.ReplaceAll(title, "/", "-")
 	title = strings.ReplaceAll(title, "\\", "-")
 
-	fmt.Printf("🎵 Downloading: %s\n", title)
+	color.Blue("🎵 Downloading: %s\n", title)
 
 	//? Output filenames
 	var outputWebm string = title + ".webm"
@@ -45,10 +46,10 @@ func main() {
 	//? Step 2: Download audio in parallel chunks
 	size, err := getFileSize(audioURL)
 	if err != nil {
-		fmt.Println("Error getting file size:", err)
+		color.Red("Error getting file size: %v", err)
 		return
 	}
-	fmt.Printf("📦 File size: %d bytes\n", size)
+	color.Blue("📦 File size: %d bytes\n", size)
 
 	chunk := size / WORKERS //? Calculate chunk size
 	var wg sync.WaitGroup   //? Create a wait group to synchronize goroutines
@@ -74,7 +75,7 @@ func main() {
 	//? Step 3 : Merge parts using ffmpeg
 	err = mergeParts(outputWebm, partFiles)
 	if err != nil {
-		fmt.Println("Error merging parts:", err)
+		color.Red("Error merging parts: %v", err)
 		return
 	}
 
@@ -83,14 +84,14 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {
-		fmt.Println("Error converting to mp3:", err)
+		color.Red("Error converting to mp3: %v", err)
 		return
 	}
 
 	//? Cleanup
 	os.Remove(outputWebm)
 
-	fmt.Printf("✅ Saved as %s\n", outputMp3)
+	color.Green("✅ Saved as %s\n", outputMp3)
 }
 
 // * Run yt-dlp to get the best audio URL
@@ -103,7 +104,7 @@ func getAudioURL(videoURL string) (string, error) {
 
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println("Error executing yt-dlp:", err)
+		color.Red("Error executing yt-dlp: %v", err)
 		return "", err
 	}
 	return strings.TrimSpace(out.String()), nil
@@ -119,7 +120,7 @@ func getVideoTitle(videoURL string) (string, error) {
 
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println("Error executing yt-dlp for title:", err)
+		color.Red("Error executing yt-dlp for title: %v", err)
 		return "", err
 	}
 	return strings.TrimSpace(out.String()), nil
@@ -129,7 +130,7 @@ func getVideoTitle(videoURL string) (string, error) {
 func getFileSize(url string) (int64, error) {
 	res, err := http.Head(url)
 	if err != nil {
-		fmt.Println("Error making HEAD request:", err)
+		color.Red("Error making HEAD request: %v", err)
 		return 0, err
 	}
 	defer res.Body.Close()
@@ -152,7 +153,7 @@ func downloadPart(url string, start, end int64, filename string, wg *sync.WaitGr
 	//? Create HTTP request with Range header
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		fmt.Println("Error creating request:", err)
+		color.Red("Error creating request: %v", err)
 		return
 	}
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
@@ -160,14 +161,14 @@ func downloadPart(url string, start, end int64, filename string, wg *sync.WaitGr
 	//? Perform the request
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println("Error downloading part:", err)
+		color.Red("Error downloading part: %v", err)
 		return
 	}
 	defer res.Body.Close()
 
 	partFile, err := os.Create(filename)
 	if err != nil {
-		fmt.Println("Error creating part file:", err)
+		color.Red("Error creating part file: %v", err)
 		return
 	}
 	defer partFile.Close()
@@ -175,10 +176,10 @@ func downloadPart(url string, start, end int64, filename string, wg *sync.WaitGr
 	//? Write response body to part file
 	_, err = io.Copy(partFile, res.Body)
 	if err != nil {
-		fmt.Println("Error writing to part file:", err)
+		color.Red("Error writing to part file: %v", err)
 		return
 	}
-	fmt.Printf("✅ Downloaded part: %s\n", filename)
+	color.Green("✅ Downloaded part: %s\n", filename)
 }
 
 // * Merge temporary parts into one file using ffmpeg
