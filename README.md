@@ -1,5 +1,7 @@
 # YouTube MP3 Downloader (Go)
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 A fast and simple **YouTube audio downloader** written in Go.
 Downloads audio in parallel chunks and converts it to MP3 using **ffmpeg**.
 
